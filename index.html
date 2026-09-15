@@ -1,0 +1,647 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>I Turned a 2013 Google Glass Into a Claude Code Terminal</title>
+  <meta name="description" content="A first-generation Google Glass repurposed as a persistent, voice-driven Claude Code terminal over SSH, tmux, and Whisper.">
+  <meta name="theme-color" content="#0a0c0b">
+  <meta property="og:title" content="I Turned a 2013 Google Glass Into a Claude Code Terminal">
+  <meta property="og:description" content="Google Glass as a thin wearable terminal: SSH, tmux, whisper.cpp, and Claude Code.">
+  <meta property="og:type" content="article">
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0a0c0b;
+      --panel: #0f1210;
+      --text: #d9e0d8;
+      --muted: #7f8c80;
+      --dim: #566057;
+      --accent: #9be564;
+      --accent-2: #f0a35e;
+      --line: #232a24;
+      --code: #c7d6c7;
+      --max: 780px;
+    }
+
+    * { box-sizing: border-box; }
+
+    html {
+      background: var(--bg);
+      scroll-behavior: smooth;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      font-size: 16px;
+      line-height: 1.72;
+      text-rendering: optimizeLegibility;
+    }
+
+    a {
+      color: var(--accent);
+      text-decoration-thickness: 1px;
+      text-underline-offset: 3px;
+    }
+
+    a:hover { color: #c4ff9d; }
+
+    .wrap {
+      width: min(calc(100% - 32px), var(--max));
+      margin: 0 auto;
+    }
+
+    header {
+      padding: 44px 0 30px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .prompt {
+      margin: 0 0 18px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .prompt .host { color: var(--accent); }
+    .prompt .path { color: var(--accent-2); }
+
+    h1, h2 {
+      line-height: 1.2;
+      letter-spacing: -0.025em;
+    }
+
+    h1 {
+      margin: 0;
+      max-width: 18ch;
+      font-size: clamp(2rem, 7vw, 3.6rem);
+      font-weight: 700;
+      color: #eef5ed;
+    }
+
+    .dek {
+      margin: 22px 0 0;
+      max-width: 65ch;
+      color: var(--muted);
+      font-size: 1.03rem;
+    }
+
+    .meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px 18px;
+      margin-top: 22px;
+      color: var(--dim);
+      font-size: 13px;
+    }
+
+    main {
+      padding: 32px 0 64px;
+    }
+
+    h2 {
+      margin: 3.2rem 0 1rem;
+      font-size: 1.35rem;
+      color: #e7eee6;
+    }
+
+    h2::before {
+      content: "## ";
+      color: var(--accent);
+    }
+
+    p {
+      margin: 1rem 0;
+    }
+
+    strong { color: #f0f4ef; }
+
+    blockquote {
+      margin: 1.5rem 0;
+      padding: 0.2rem 0 0.2rem 1rem;
+      border-left: 2px solid var(--accent);
+      color: #edf3ec;
+    }
+
+    pre {
+      overflow-x: auto;
+      margin: 1.4rem 0;
+      padding: 16px 18px;
+      border: 1px solid var(--line);
+      border-radius: 5px;
+      background: var(--panel);
+      color: var(--code);
+      line-height: 1.45;
+      font-size: 14px;
+      tab-size: 2;
+    }
+
+    code {
+      font-family: inherit;
+      color: var(--code);
+    }
+
+    p code {
+      padding: 0.12rem 0.3rem;
+      border: 1px solid var(--line);
+      border-radius: 3px;
+      background: var(--panel);
+      font-size: 0.94em;
+    }
+
+    .lede {
+      font-size: 1.08rem;
+      color: #e4eae3;
+    }
+
+    .rule {
+      height: 1px;
+      margin: 3rem 0;
+      background: var(--line);
+    }
+
+    footer {
+      padding: 24px 0 48px;
+      border-top: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .cursor {
+      display: inline-block;
+      width: 0.65ch;
+      height: 1.05em;
+      margin-left: 0.2ch;
+      vertical-align: -0.14em;
+      background: var(--accent);
+      animation: blink 1.15s steps(1, end) infinite;
+    }
+
+    @keyframes blink {
+      50% { opacity: 0; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .cursor { animation: none; }
+      html { scroll-behavior: auto; }
+    }
+
+    @media (max-width: 560px) {
+      body { font-size: 15px; }
+      header { padding-top: 28px; }
+      pre { margin-left: -8px; margin-right: -8px; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="wrap">
+      <p class="prompt"><span class="host">void@glass</span>:<span class="path">~/glassterm</span>$ cat README.md</p>
+      <h1>I Turned a 2013 Google Glass Into a Claude Code Terminal<span class="cursor" aria-hidden="true"></span></h1>
+      <p class="dek">A first-generation Google Glass, a persistent tmux session, whisper.cpp, and the realization that the computer on my face does not actually need to be smart.</p>
+      <div class="meta">
+        <span>September 2026</span>
+        <span>~13 year old hardware</span>
+        <a href="https://github.com/voidnullvalue/glassterm">source on GitHub</a>
+      </div>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <p class="lede">I have a first-generation Google Glass Explorer Edition.</p>
+
+    <p>Not the vaguely useful later enterprise version. The original 2013-era Glass: OMAP4430, tiny battery, tiny display, ancient Android, and enough compute to make a Raspberry Pi look extravagant.</p>
+
+    <p>Naturally, I wanted to run Claude Code on it.</p>
+
+    <p>Obviously I was not going to <em>actually</em> run Claude Code on it. That would be stupid.</p>
+
+    <p>What I wanted was the experience of putting on Glass, looking up, and having my real development terminal sitting there. I wanted to be able to talk into it, have my speech show up in Claude Code, and watch Claude work without pulling out a laptop.</p>
+
+    <p>The interesting part turned out to be how little software Glass itself actually needed to run.</p>
+
+    <h2>Glass should be a terminal, not a computer</h2>
+
+    <p>The first mistake with projects like this is trying to make the old hardware do things it has absolutely no business doing.</p>
+
+    <p>Glass does not need Node. It does not need Git. It does not need Claude Code. It does not need a local LLM. It definitely does not need Whisper.</p>
+
+    <p>It needs to do five things:</p>
+
+<pre><code>display text
+capture audio
+detect a button
+move bytes over Wi-Fi
+run SSH</code></pre>
+
+    <p>That's it.</p>
+
+    <p>Everything expensive happens somewhere else.</p>
+
+    <p>My workstation already has my repositories, Claude Code, compilers, Docker, Git, tests, credentials, and all the other garbage accumulated by an actual development environment.</p>
+
+    <p>So Glass became a very thin client for that machine.</p>
+
+    <p>The core setup is almost offensively simple:</p>
+
+<pre><code>Google Glass
+     |
+     | SSH
+     v
+development workstation
+     |
+     v
+tmux session
+     |
+     v
+Claude Code</code></pre>
+
+    <p>The persistent <code>tmux</code> session is called <code>glass</code>.</p>
+
+    <p>Glass SSHes in and attaches to it.</p>
+
+    <p>Claude Code runs inside that session exactly as it would if I were sitting at my desk.</p>
+
+    <p>There is no special Claude integration on Glass at all.</p>
+
+    <h2>tmux is doing most of the magic</h2>
+
+    <p>The part that makes this actually usable is <code>tmux</code>.</p>
+
+    <p>Wearable computers are shitty network clients.</p>
+
+    <p>Glass goes to sleep. Wi-Fi disappears. Android kills things. Batteries die. You walk outside. You walk back inside. Some 13-year-old component decides it has suffered enough.</p>
+
+    <p>I do not want any of that to matter.</p>
+
+    <p>If Glass owned the shell session, every disconnect would murder whatever I was doing.</p>
+
+    <p>Instead:</p>
+
+<pre><code>Glass disconnects
+       |
+       X
+
+tmux + Claude keep running</code></pre>
+
+    <p>Then when Glass comes back:</p>
+
+<pre><code>SSH
+ |
+ v
+tmux new-session -A -s glass</code></pre>
+
+    <p>and I'm exactly where I left off.</p>
+
+    <p>That means the Glass unit is effectively disposable from the session's point of view.</p>
+
+    <p>Reboot it. Kill Termux. Walk out of Wi-Fi range. Whatever.</p>
+
+    <p>Claude does not care.</p>
+
+    <p>This also means I can attach to the same session from a normal terminal when I need to unfuck something.</p>
+
+    <p>That turned out to matter.</p>
+
+    <h2>Getting Glass to boot into something useful</h2>
+
+    <p>The Glass is running the community Android 5.1.1 build rather than the original Glass OS.</p>
+
+    <p>I unlocked it, rooted it, and modified the boot image so Android launches Termux after boot.</p>
+
+    <p>The intended boot sequence is basically:</p>
+
+<pre><code>power on
+   |
+Android boots
+   |
+Termux starts
+   |
+wait for network
+   |
+SSH
+   |
+attach tmux</code></pre>
+
+    <p>At that point Glass stops behaving like a novelty Android device and starts behaving more like an appliance.</p>
+
+    <p>That's what I wanted.</p>
+
+    <p>I do not want a launcher.</p>
+
+    <p>I do not want to swipe around looking for an app.</p>
+
+    <p>I want to put the stupid thing on my face and get a terminal.</p>
+
+    <p>There is one mundane problem here that becomes very obvious once you automate the boot: Android finishes booting before Wi-Fi necessarily finishes connecting.</p>
+
+    <p>So the terminal bootstrap cannot just immediately SSH once and give up.</p>
+
+    <p>It retries until the workstation is reachable and then attaches to the session.</p>
+
+    <p>Not interesting. Completely necessary.</p>
+
+    <h2>Then I wanted to talk to it</h2>
+
+    <p>A tiny terminal display is useful.</p>
+
+    <p>Typing on Google Glass is not.</p>
+
+    <p>The obvious next step was voice input.</p>
+
+    <p>Again, Glass should not do the expensive part.</p>
+
+    <p>Trying to run useful Whisper inference on an OMAP4430 would be less "edge AI" and more an elaborate cry for help.</p>
+
+    <p>I already have another Linux box on my network named <code>fenchurch</code>.</p>
+
+    <p>So the audio path looks like this:</p>
+
+<pre><code>Glass microphone
+      |
+      v
+raw audio
+      |
+      v
+fenchurch
+      |
+      v
+whisper.cpp
+      |
+      v
+text
+      |
+      v
+tmux
+      |
+      v
+Claude Code</code></pre>
+
+    <p><code>fenchurch</code> runs <code>whisper.cpp</code> on CPU.</p>
+
+    <p>Glass records roughly the sort of audio Whisper wants anyway: mono PCM around 16 kHz.</p>
+
+    <p>There was no reason to build a fucking distributed audio platform for this.</p>
+
+    <p>I considered various transports and eventually arrived at the usual conclusion:</p>
+
+    <blockquote>Use the dumbest thing that works.</blockquote>
+
+    <p>Raw audio over a socket is fine.</p>
+
+    <p>SSH piping is fine.</p>
+
+    <p>I don't need Kafka for my eyeglasses.</p>
+
+    <h2>The camera button became push-to-talk</h2>
+
+    <p>Original Glass has a physical camera button on top.</p>
+
+    <p>I have essentially zero interest in taking pictures with this thing.</p>
+
+    <p>A physical button on a wearable, however, is extremely useful.</p>
+
+    <p>So it became push-to-talk.</p>
+
+    <p>The interaction is:</p>
+
+<pre><code>hold camera button
+        |
+record
+
+speak
+
+release button
+        |
+stop recording
+        |
+send audio
+        |
+transcribe
+        |
+inject text</code></pre>
+
+    <p>That feels surprisingly natural.</p>
+
+    <p>The camera button also gives the microphone an explicit state.</p>
+
+    <p>I do not particularly want a Glass microphone continuously shipping everything happening around me to a speech recognizer just so I can occasionally tell Claude to run a test.</p>
+
+    <p>Push-to-talk solves that without needing some elaborate wake-word daemon running on prehistoric hardware.</p>
+
+    <h2>Speech recognition was the easy part</h2>
+
+    <p>Once <code>whisper.cpp</code> gives me text, I have to put that text into the existing Claude terminal.</p>
+
+    <p>The naive version is something like:</p>
+
+<pre><code>ssh workstation "tmux send-keys -t glass '$TEXT' Enter"</code></pre>
+
+    <p>Do not do that.</p>
+
+    <p>Speech can contain quotes.</p>
+
+    <p>Speech can contain dollar signs.</p>
+
+    <p>Speech can contain semicolons.</p>
+
+    <p>Speech can contain backticks.</p>
+
+    <p>Speech can contain something that happens to look exactly like shell syntax.</p>
+
+    <p>And eventually Whisper will hallucinate something weird enough to make you regret treating arbitrary transcription as executable command construction.</p>
+
+    <p>The transcription should be data.</p>
+
+    <p>So I send the text through stdin, load it into a tmux buffer, and paste the buffer into the session.</p>
+
+    <p>Conceptually:</p>
+
+<pre><code>printf '%s' "$TEXT" |
+ssh workstation '
+    tmux load-buffer - &amp;&amp;
+    tmux paste-buffer -t glass &amp;&amp;
+    tmux send-keys -t glass Enter
+'</code></pre>
+
+    <p>Now the text lands in Claude exactly like pasted keyboard input.</p>
+
+    <p>It is not being reparsed as part of some shell command I dynamically constructed.</p>
+
+    <p>This is a small implementation detail that becomes a fairly important implementation detail the first time you dictate something involving shell metacharacters.</p>
+
+    <h2>I also gave it the world's worst wake phrase</h2>
+
+    <p>At one point I wanted a mode where Glass could listen and only forward something when it heard an intentionally absurd activation phrase.</p>
+
+    <p>So I picked:</p>
+
+<pre><code>banana chicken monkey fucker</code></pre>
+
+    <p>There are several desirable properties here.</p>
+
+    <p>Nobody says it accidentally.</p>
+
+    <p>Whisper recognizes the words reasonably well.</p>
+
+    <p>And if somebody nearby somehow does say it, I have larger questions.</p>
+
+    <p>The server recognizes the phrase, strips it, and sends only the remainder to Claude.</p>
+
+    <p>So:</p>
+
+<pre><code>banana chicken monkey fucker inspect the git diff</code></pre>
+
+    <p>becomes:</p>
+
+<pre><code>inspect the git diff</code></pre>
+
+    <p>before Claude ever sees it.</p>
+
+    <p>This is not meant to be security in the cryptographic sense.</p>
+
+    <p>It is an accidental-command filter.</p>
+
+    <p>The physical push-to-talk button is still the better interface most of the time.</p>
+
+    <h2>The return path required basically nothing</h2>
+
+    <p>This is probably my favorite part of the whole design.</p>
+
+    <p>There is no response API.</p>
+
+    <p>There is no custom renderer.</p>
+
+    <p>There is no "Claude Glass client."</p>
+
+    <p>Claude writes text to a terminal.</p>
+
+    <p>The terminal is inside tmux.</p>
+
+    <p>tmux is attached over SSH.</p>
+
+    <p>SSH is displayed by Termux.</p>
+
+    <p>Termux is on Glass.</p>
+
+    <p>Done.</p>
+
+<pre><code>Claude
+  |
+terminal
+  |
+tmux
+  |
+SSH
+  |
+Termux
+  |
+Glass display</code></pre>
+
+    <p>Anything that works in the terminal works on Glass.</p>
+
+    <p>Claude responses.</p>
+
+    <p><code>git diff</code>.</p>
+
+    <p>Test output.</p>
+
+    <p>Compiler errors.</p>
+
+    <p>Logs.</p>
+
+    <p>Interactive prompts.</p>
+
+    <p>All of it.</p>
+
+    <p>The least sophisticated component in the system is Glass, which is exactly how this should work.</p>
+
+    <h2>The topology ended up looking like this</h2>
+
+<pre><code>                 GOOGLE GLASS
+              +----------------+
+              | terminal       |
+              | microphone     |
+              | camera button  |
+              +-------+--------+
+                      |
+            +---------+---------+
+            |                   |
+          SSH               microphone
+            |                   |
+            v                   v
+ +-------------------+   +------------------+
+ | dev workstation   |   |    fenchurch     |
+ |                   |   |                  |
+ | tmux: glass       |&lt;--| whisper.cpp      |
+ | Claude Code       |   | speech -&gt; text   |
+ | Git / Docker /    |   +------------------+
+ | compilers / etc.  |
+ +-------------------+</code></pre>
+
+    <p>Away from my LAN, I can put the network behind WireGuard rather than exposing any of this shit directly to the Internet.</p>
+
+    <p>Glass does not need to know or care whether the workstation is three feet away or across the country as long as it can reach SSH.</p>
+
+    <h2>This works because I stopped trying to make Glass smart</h2>
+
+    <p>I think this is the generalizable part.</p>
+
+    <p>Old hardware projects often turn into a contest to cram modern software onto hardware that hates you.</p>
+
+    <p>Sometimes that is fun.</p>
+
+    <p>But it is usually not how you make the hardware useful.</p>
+
+    <p>Google Glass still has several things going for it.</p>
+
+    <p>It is wearable.</p>
+
+    <p>It has a heads-up display.</p>
+
+    <p>It has Wi-Fi.</p>
+
+    <p>It has a microphone.</p>
+
+    <p>It has physical controls.</p>
+
+    <p>It can run enough Linux-ish userspace to speak SSH.</p>
+
+    <p>Those properties have aged much better than its CPU.</p>
+
+    <p>So instead of asking:</p>
+
+    <blockquote>Can this 2013 computer run a 2026 AI coding environment?</blockquote>
+
+    <p>I asked:</p>
+
+    <blockquote>What is the smallest piece of a 2026 AI coding environment that actually needs to run on my face?</blockquote>
+
+    <p>The answer is almost nothing.</p>
+
+    <p>Glass is just a window into the real machine.</p>
+
+    <p>That makes the absurdity of the hardware mostly irrelevant.</p>
+
+    <p>I now have a 13-year-old Google Glass that boots directly into a persistent Claude Code terminal, lets me dictate prompts with a hardware push-to-talk button, sends the audio to Whisper on another machine, injects the transcription safely into tmux, and shows Claude's response back in the display.</p>
+
+    <p>It is ridiculous.</p>
+
+    <p>It is also genuinely useful.</p>
+
+    <p>And, as far as I can tell, this may be the first productive thing anyone has done with Google Glass in years.</p>
+
+    <div class="rule"></div>
+
+    <p><a href="https://github.com/voidnullvalue/glassterm">github.com/voidnullvalue/glassterm</a></p>
+  </main>
+
+  <footer>
+    <div class="wrap">
+      <span>Built with HTML, CSS, SSH, tmux, and questionable judgment.</span>
+    </div>
+  </footer>
+</body>
+</html>

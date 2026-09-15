@@ -474,40 +474,6 @@ ssh workstation '
 
     <p>This is a small implementation detail that becomes a fairly important implementation detail the first time you dictate something involving shell metacharacters.</p>
 
-    <h2>I also gave it the world's worst wake phrase</h2>
-
-    <p>At one point I wanted a mode where Glass could listen and only forward something when it heard an intentionally absurd activation phrase.</p>
-
-    <p>So I picked:</p>
-
-<pre><code>banana chicken monkey fucker</code></pre>
-
-    <p>There are several desirable properties here.</p>
-
-    <p>Nobody says it accidentally.</p>
-
-    <p>Whisper recognizes the words reasonably well.</p>
-
-    <p>And if somebody nearby somehow does say it, I have larger questions.</p>
-
-    <p>The server recognizes the phrase, strips it, and sends only the remainder to Claude.</p>
-
-    <p>So:</p>
-
-<pre><code>banana chicken monkey fucker inspect the git diff</code></pre>
-
-    <p>becomes:</p>
-
-<pre><code>inspect the git diff</code></pre>
-
-    <p>before Claude ever sees it.</p>
-
-    <p>This is not meant to be security in the cryptographic sense.</p>
-
-    <p>It is an accidental-command filter.</p>
-
-    <p>The physical push-to-talk button is still the better interface most of the time.</p>
-
     <h2>The return path required basically nothing</h2>
 
     <p>This is probably my favorite part of the whole design.</p>
